@@ -1,0 +1,131 @@
+zabbix_export:
+  version: '7.2'
+  template_groups:
+    - uuid: 91520a96e3984c5e8dcd63bc45b04d75
+      name: 'pn custom'
+  templates:
+    - uuid: 1f62c47127d4484a865c2b635f702951
+      template: 'Linux block'
+      name: 'Linux block'
+      groups:
+        - name: 'pn custom'
+      discovery_rules:
+        - uuid: 230be614abf544068b2fdc1a1c42c8b1
+          name: 'disco: block devices'
+          key: vfs.dev.discovery
+          delay: 1h
+          filter:
+            conditions:
+              - macro: '{#DEVTYPE}'
+                value: disk
+          item_prototypes:
+            - uuid: e65e3c513a704ae59b9a5aaabba96570
+              name: 'block {#DEVNAME}: read i/o rate'
+              type: DEPENDENT
+              key: 'vfs.dev.read.io.rate[{#DEVNAME}]'
+              value_type: FLOAT
+              units: iops
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[0]'
+                - type: CHANGE_PER_SECOND
+              master_item:
+                key: 'vfs.file.contents[/sys/block/{#DEVNAME}/stat]'
+              tags:
+                - tag: blockdev
+                  value: '{#DEVNAME}'
+                - tag: cat
+                  value: block
+            - uuid: 31d436bbcebf47ebb04fa73973572498
+              name: 'block {#DEVNAME}: avg read request latency'
+              type: CALCULATED
+              key: 'vfs.dev.read.latency[{#DEVNAME}]'
+              value_type: FLOAT
+              units: ms
+              params: 'last(//vfs.dev.read.time.rate[{#DEVNAME}]) / (last(//vfs.dev.read.io.rate[{#DEVNAME}]) + 1)'
+              tags:
+                - tag: blockdev
+                  value: '{#DEVNAME}'
+                - tag: cat
+                  value: block
+            - uuid: 52914fe23c524922a454f9a4014c1173
+              name: 'block {#DEVNAME}: read time rate'
+              type: DEPENDENT
+              key: 'vfs.dev.read.time.rate[{#DEVNAME}]'
+              value_type: FLOAT
+              units: ms/s
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[3]'
+                - type: CHANGE_PER_SECOND
+              master_item:
+                key: 'vfs.file.contents[/sys/block/{#DEVNAME}/stat]'
+              tags:
+                - tag: blockdev
+                  value: '{#DEVNAME}'
+                - tag: cat
+                  value: block
+            - uuid: 3dbeaf731260450e80e85f719af46589
+              name: 'block {#DEVNAME}: write i/o rate'
+              type: DEPENDENT
+              key: 'vfs.dev.write.io.rate[{#DEVNAME}]'
+              value_type: FLOAT
+              units: iops
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[4]'
+                - type: CHANGE_PER_SECOND
+              master_item:
+                key: 'vfs.file.contents[/sys/block/{#DEVNAME}/stat]'
+              tags:
+                - tag: blockdev
+                  value: '{#DEVNAME}'
+                - tag: cat
+                  value: block
+            - uuid: e8920d3d754b4489b5808fdc5d52c50f
+              name: 'block {#DEVNAME}: avg write request latency'
+              type: CALCULATED
+              key: 'vfs.dev.write.latency[{#DEVNAME}]'
+              value_type: FLOAT
+              units: ms
+              params: 'last(//vfs.dev.write.time.rate[{#DEVNAME}]) / (last(//vfs.dev.write.io.rate[{#DEVNAME}]) + 1)'
+              tags:
+                - tag: blockdev
+                  value: '{#DEVNAME}'
+                - tag: cat
+                  value: block
+            - uuid: 38d9211a59c14f788894fd6a7c3b6105
+              name: 'block {#DEVNAME}: write time rate'
+              type: DEPENDENT
+              key: 'vfs.dev.write.time.rate[{#DEVNAME}]'
+              value_type: FLOAT
+              units: ms/s
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[7]'
+                - type: CHANGE_PER_SECOND
+              master_item:
+                key: 'vfs.file.contents[/sys/block/{#DEVNAME}/stat]'
+              tags:
+                - tag: blockdev
+                  value: '{#DEVNAME}'
+                - tag: cat
+                  value: block
+            - uuid: cfc089fda5004e23863e08a8bf5ff6ac
+              name: 'block {#DEVNAME}: get stats'
+              key: 'vfs.file.contents[/sys/block/{#DEVNAME}/stat]'
+              history: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JAVASCRIPT
+                  parameters:
+                    - 'return JSON.stringify(value.trim().split(/ +/));'
+              tags:
+                - tag: blockdev
+                  value: '{#DEVNAME}'
+                - tag: cat
+                  value: block

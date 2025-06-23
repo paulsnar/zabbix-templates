@@ -1,0 +1,583 @@
+zabbix_export:
+  version: '7.2'
+  template_groups:
+    - uuid: 91520a96e3984c5e8dcd63bc45b04d75
+      name: 'pn custom'
+  templates:
+    - uuid: 443b7d1f045d4ec68777b12a677244ef
+      template: Linux
+      name: Linux
+      groups:
+        - name: 'pn custom'
+      items:
+        - uuid: 122a31fd45664bf5a9f193a09342812c
+          name: 'kernel: max open files'
+          key: kernel.maxfiles
+          tags:
+            - tag: cat
+              value: kernel
+        - uuid: 4e7e4d3c019f44b69f8624f83ce1cede
+          name: 'kernel: max process count'
+          key: kernel.maxproc
+          tags:
+            - tag: cat
+              value: kernel
+        - uuid: dd29e9f8ec6642699100edaf1e4daca8
+          name: 'kernel: open files'
+          key: kernel.openfiles
+          tags:
+            - tag: cat
+              value: kernel
+        - uuid: 21e953ee206c423c9dff36c6dff91daa
+          name: 'kernel: process count'
+          key: proc.num
+          tags:
+            - tag: cat
+              value: kernel
+        - uuid: 75deca8648d94780aeb9174e5c0855d9
+          name: 'sys: cpu load (1m avg)'
+          key: 'system.cpu.load[percpu,avg1]'
+          value_type: FLOAT
+          units: '%'
+          preprocessing:
+            - type: MULTIPLIER
+              parameters:
+                - '100'
+          tags:
+            - tag: cat
+              value: cpu
+          triggers:
+            - uuid: 1c8e8bd0ec6b40329b11a30ed9384215
+              expression: 'avg(/Linux/system.cpu.load[percpu,avg1],5m) > 75'
+              name: 'CPU load above 75%'
+              priority: AVERAGE
+              dependencies:
+                - name: 'CPU load above 90%'
+                  expression: 'avg(/Linux/system.cpu.load[percpu,avg1],5m) > 90'
+            - uuid: dae01b8dbadc4f56895438dc0c23fb7d
+              expression: 'avg(/Linux/system.cpu.load[percpu,avg1],5m) > 90'
+              name: 'CPU load above 90%'
+              priority: HIGH
+        - uuid: 62e7f8305ef44fd293182efb3fc0d77a
+          name: 'sys: cpu load (5m avg)'
+          key: 'system.cpu.load[percpu,avg5]'
+          value_type: FLOAT
+          units: '%'
+          preprocessing:
+            - type: MULTIPLIER
+              parameters:
+                - '100'
+          tags:
+            - tag: cat
+              value: cpu
+        - uuid: 12a00cf74b1942eea0225fb5ab9794b9
+          name: 'sys: cpu load (15m avg)'
+          key: 'system.cpu.load[percpu,avg15]'
+          value_type: FLOAT
+          units: '%'
+          preprocessing:
+            - type: MULTIPLIER
+              parameters:
+                - '100'
+          tags:
+            - tag: cat
+              value: cpu
+        - uuid: 4af453f83f034e5985d233c3decb9cf1
+          name: 'sys: cpu utilization'
+          key: 'system.cpu.util[all,user]'
+          value_type: FLOAT
+          units: '%'
+          tags:
+            - tag: cat
+              value: cpu
+        - uuid: dac3613e1ee14a4aa35fadaeda5c1e7a
+          name: 'sys: hostname'
+          key: system.hostname
+          delay: 1h
+          value_type: CHAR
+        - uuid: 948e6a0ed93045ba9157def43afc22a8
+          name: 'vm: % used swap'
+          key: 'system.swap.size[,pused]'
+          value_type: FLOAT
+          status: DISABLED
+          units: '%'
+          tags:
+            - tag: cat
+              value: mem
+        - uuid: 7daa1e1f0d1b481ba3cbca0cf84d672e
+          name: 'vm: total swap'
+          key: 'system.swap.size[,total]'
+          status: DISABLED
+          units: B
+          tags:
+            - tag: cat
+              value: mem
+        - uuid: e53729d2ea604ecb8e0afedcaf783fe4
+          name: 'vm: used swap'
+          key: 'system.swap.size[,used]'
+          status: DISABLED
+          units: B
+          tags:
+            - tag: cat
+              value: mem
+        - uuid: ac94525e6da24c628000ec927a6974c1
+          name: 'sys: uptime'
+          key: system.uptime
+          units: uptime
+          triggers:
+            - uuid: feaca6bfd14f4cea90361200e89ca68f
+              expression: 'monoinc(/Linux/system.uptime,#3) = 0'
+              recovery_mode: NONE
+              name: 'Host has been rebooted'
+              priority: INFO
+              manual_close: 'YES'
+        - uuid: fbc91778cb7a451a8a297c31deacb4a5
+          name: 'vm meminfo: read'
+          key: 'vfs.file.contents[/proc/meminfo]'
+          delay: 5m
+          history: '0'
+          value_type: TEXT
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  var lines = value.split("\n");
+                  var re = {};
+                  for (var i = 0, l = lines.length; i < l; i += 1) {
+                  	var line = lines[i];
+                  	var parts = line.split(/ +/);
+                      parts[0] = parts[0].replace(/:$/, '');
+                  	re[parts[0]] = parts[1] * 1024;
+                  }
+                  return JSON.stringify(re);
+          tags:
+            - tag: cat
+              value: meminfo
+        - uuid: d96e02a7635044c3a95e05b2f7eaaeaa
+          name: 'vm meminfo: anon pages'
+          type: DEPENDENT
+          key: 'vm.meminfo[AnonPages]'
+          history: 7d
+          trends: 30d
+          units: B
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.AnonPages
+          master_item:
+            key: 'vfs.file.contents[/proc/meminfo]'
+          tags:
+            - tag: cat
+              value: meminfo
+        - uuid: fc393886ea2d499d964679af1956593f
+          name: 'vm meminfo: file huge pages'
+          type: DEPENDENT
+          key: 'vm.meminfo[FileHugePages]'
+          history: 7d
+          trends: 30d
+          units: B
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.FileHugePages
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: 'vfs.file.contents[/proc/meminfo]'
+          tags:
+            - tag: cat
+              value: meminfo
+        - uuid: 4d4f3a9cf87940b1badfd9bc37354494
+          name: 'vm meminfo: kernel stack'
+          type: DEPENDENT
+          key: 'vm.meminfo[KernelStack]'
+          history: 7d
+          trends: 30d
+          units: B
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.KernelStack
+          master_item:
+            key: 'vfs.file.contents[/proc/meminfo]'
+          tags:
+            - tag: cat
+              value: meminfo
+        - uuid: be617776157f4f98a21ce8e8ed2a0e0d
+          name: 'vm meminfo: mapped pages'
+          type: DEPENDENT
+          key: 'vm.meminfo[Mapped]'
+          history: 7d
+          trends: 30d
+          units: B
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.Mapped
+          master_item:
+            key: 'vfs.file.contents[/proc/meminfo]'
+          tags:
+            - tag: cat
+              value: meminfo
+        - uuid: 00f94828226648dc986bbcf7e8cdc3cb
+          name: 'vm meminfo: page tables'
+          type: DEPENDENT
+          key: 'vm.meminfo[PageTables]'
+          history: 7d
+          trends: 30d
+          units: B
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.PageTables
+          master_item:
+            key: 'vfs.file.contents[/proc/meminfo]'
+          tags:
+            - tag: cat
+              value: meminfo
+        - uuid: 163bc1ee55f840f8afce6064dde57167
+          name: 'vm meminfo: secondary page tables'
+          type: DEPENDENT
+          key: 'vm.meminfo[SecPageTables]'
+          history: 7d
+          trends: 30d
+          units: B
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.SecPageTables
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: 'vfs.file.contents[/proc/meminfo]'
+          tags:
+            - tag: cat
+              value: meminfo
+        - uuid: ec403cb1e7334cffbdaa94e504591959
+          name: 'vm meminfo: shared pages'
+          type: DEPENDENT
+          key: 'vm.meminfo[Shmem]'
+          history: 7d
+          trends: 30d
+          units: B
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.Shmem
+          master_item:
+            key: 'vfs.file.contents[/proc/meminfo]'
+          tags:
+            - tag: cat
+              value: meminfo
+        - uuid: a3e9ca2878a4436c935c255187c66c16
+          name: 'vm meminfo: slab pages'
+          type: DEPENDENT
+          key: 'vm.meminfo[Slab]'
+          history: 7d
+          trends: 30d
+          units: B
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.Slab
+          master_item:
+            key: 'vfs.file.contents[/proc/meminfo]'
+          tags:
+            - tag: cat
+              value: meminfo
+        - uuid: 53c3b1301d374826a6571833f7903714
+          name: 'vm meminfo: vmalloc total'
+          type: DEPENDENT
+          key: 'vm.meminfo[VmallocTotal]'
+          history: 7d
+          trends: 30d
+          units: B
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.VmallocTotal
+          master_item:
+            key: 'vfs.file.contents[/proc/meminfo]'
+          tags:
+            - tag: cat
+              value: meminfo
+        - uuid: 95656ec051b64c37a92c3bfb7c9bd50b
+          name: 'vm meminfo: vmalloc used'
+          type: DEPENDENT
+          key: 'vm.meminfo[VmallocUsed]'
+          history: 7d
+          trends: 30d
+          units: B
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.VmallocUsed
+          master_item:
+            key: 'vfs.file.contents[/proc/meminfo]'
+          tags:
+            - tag: cat
+              value: meminfo
+        - uuid: ee4896439c4547a1848e19ac68558707
+          name: 'vm: available memory'
+          key: 'vm.memory.size[available]'
+          units: B
+          tags:
+            - tag: cat
+              value: mem
+        - uuid: 761428ec458841b2b6166bbfbbcf9860
+          name: 'vm: % available memory'
+          key: 'vm.memory.size[pavailable]'
+          value_type: FLOAT
+          units: '%'
+          tags:
+            - tag: cat
+              value: mem
+          triggers:
+            - uuid: 4e4c97b90f0b406d890357aca5a7b862
+              expression: 'last(/Linux/vm.memory.size[pavailable]) < 10'
+              name: 'Available memory below 10%'
+              priority: HIGH
+            - uuid: 71ce3b7f90f0405ab7feca97b9e462bb
+              expression: 'last(/Linux/vm.memory.size[pavailable]) < 25'
+              name: 'Available memory below 25%'
+              priority: AVERAGE
+              dependencies:
+                - name: 'Available memory below 10%'
+                  expression: 'last(/Linux/vm.memory.size[pavailable]) < 10'
+        - uuid: f593c266e3d84a79bb8c5b081e7595b2
+          name: 'vm: total memory'
+          key: 'vm.memory.size[total]'
+          units: B
+          tags:
+            - tag: cat
+              value: mem
+        - uuid: 938ae0566cb04e2db1fe4c0d5a4568d8
+          name: 'kernel: % consumed open files'
+          type: CALCULATED
+          key: _.kernel.openfiles.consumed
+          units: '%'
+          params: '100 * last(//kernel.openfiles) / last(//kernel.maxfiles)'
+          tags:
+            - tag: cat
+              value: kernel
+        - uuid: c203187071f440e4a8f53c79cc5e4078
+          name: 'kernel: % consumed process count'
+          type: CALCULATED
+          key: _.proc.consumed
+          value_type: FLOAT
+          units: '%'
+          params: '100 * last(//proc.num) / last(//kernel.maxproc)'
+          tags:
+            - tag: cat
+              value: kernel
+      discovery_rules:
+        - uuid: 8bad1d20708543caa7641363039de7d0
+          name: 'disco: cpus'
+          key: system.cpu.discovery
+          delay: 1h
+          item_prototypes:
+            - uuid: 953a7d080de7480e98e0053f34a99e8b
+              name: 'sys: cpu {#CPU.NUMBER} system utilization'
+              key: 'system.cpu.util[{#CPU.NUMBER},system]'
+              value_type: FLOAT
+              units: '%'
+              tags:
+                - tag: cat
+                  value: cpu
+            - uuid: fa309f3fcbb94d8d90c111ae60edcba4
+              name: 'sys: cpu {#CPU.NUMBER} user utilization'
+              key: 'system.cpu.util[{#CPU.NUMBER},user]'
+              value_type: FLOAT
+              units: '%'
+              tags:
+                - tag: cat
+                  value: cpu
+      dashboards:
+        - uuid: dd8ff5b1bce741b7bb1f070af8fa7637
+          name: Dashboard
+          display_period: '60'
+          pages:
+            - widgets:
+                - type: svggraph
+                  name: 'avg r/w latencies'
+                  width: '71'
+                  height: '6'
+                  fields:
+                    - type: STRING
+                      name: ds.0.color
+                      value: FF465C
+                    - type: INTEGER
+                      name: ds.0.fill
+                      value: '0'
+                    - type: STRING
+                      name: ds.0.items.0
+                      value: 'block *: avg read request latency'
+                    - type: INTEGER
+                      name: ds.0.transparency
+                      value: '0'
+                    - type: STRING
+                      name: ds.1.color
+                      value: FFD54F
+                    - type: INTEGER
+                      name: ds.1.fill
+                      value: '0'
+                    - type: STRING
+                      name: ds.1.items.0
+                      value: 'block *: avg write request latency'
+                    - type: INTEGER
+                      name: ds.1.transparency
+                      value: '0'
+                    - type: INTEGER
+                      name: legend_lines
+                      value: '5'
+                    - type: INTEGER
+                      name: legend_lines_mode
+                      value: '1'
+                    - type: STRING
+                      name: reference
+                      value: MTTLA
+                    - type: INTEGER
+                      name: righty
+                      value: '0'
+                - type: svggraph
+                  name: cpu
+                  'y': '6'
+                  width: '71'
+                  height: '6'
+                  fields:
+                    - type: STRING
+                      name: ds.0.color
+                      value: 4CAF50
+                    - type: INTEGER
+                      name: ds.0.fill
+                      value: '1'
+                    - type: STRING
+                      name: ds.0.items.0
+                      value: 'sys: cpu * user utilization'
+                    - type: INTEGER
+                      name: ds.0.stacked
+                      value: '1'
+                    - type: INTEGER
+                      name: ds.0.transparency
+                      value: '0'
+                    - type: STRING
+                      name: ds.1.color
+                      value: FF465C
+                    - type: INTEGER
+                      name: ds.1.fill
+                      value: '1'
+                    - type: STRING
+                      name: ds.1.items.0
+                      value: 'sys: cpu * system utilization'
+                    - type: INTEGER
+                      name: ds.1.stacked
+                      value: '1'
+                    - type: INTEGER
+                      name: ds.1.transparency
+                      value: '0'
+                    - type: STRING
+                      name: reference
+                      value: BDMUV
+                    - type: INTEGER
+                      name: righty
+                      value: '0'
+  graphs:
+    - uuid: c1be970183b24ffba69259a3f6f2471c
+      name: cpu
+      graph_items:
+        - color: FBC02D
+          calc_fnc: ALL
+          item:
+            host: Linux
+            key: 'system.cpu.load[percpu,avg1]'
+        - sortorder: '1'
+          color: 689F38
+          calc_fnc: ALL
+          item:
+            host: Linux
+            key: 'system.cpu.load[percpu,avg5]'
+        - sortorder: '2'
+          color: 039BE5
+          calc_fnc: ALL
+          item:
+            host: Linux
+            key: 'system.cpu.load[percpu,avg15]'
+    - uuid: e90e854adfb84a76a9affd28a06c9749
+      name: 'memory alerting'
+      ymin_type_1: FIXED
+      ymax_type_1: FIXED
+      graph_items:
+        - color: 1A7C11
+          calc_fnc: ALL
+          item:
+            host: Linux
+            key: 'vm.memory.size[pavailable]'
+        - sortorder: '1'
+          color: '274482'
+          calc_fnc: ALL
+          item:
+            host: Linux
+            key: 'system.swap.size[,pused]'
+    - uuid: 88cef9350c0949c996a7a6d61a3391d1
+      name: 'memory stats'
+      type: STACKED
+      graph_items:
+        - color: '274482'
+          calc_fnc: MIN
+          item:
+            host: Linux
+            key: 'vm.meminfo[KernelStack]'
+        - sortorder: '1'
+          color: 2774A4
+          calc_fnc: MIN
+          item:
+            host: Linux
+            key: 'vm.meminfo[PageTables]'
+        - sortorder: '2'
+          color: FC6EA3
+          calc_fnc: MIN
+          item:
+            host: Linux
+            key: 'vm.meminfo[Slab]'
+        - sortorder: '3'
+          color: 1A7C11
+          calc_fnc: MIN
+          item:
+            host: Linux
+            key: 'vm.meminfo[AnonPages]'
+        - sortorder: '4'
+          color: F63100
+          calc_fnc: MIN
+          item:
+            host: Linux
+            key: 'vm.meminfo[Mapped]'
+        - sortorder: '5'
+          color: A54F10
+          calc_fnc: MIN
+          item:
+            host: Linux
+            key: 'vm.meminfo[Shmem]'
+        - sortorder: '6'
+          color: 6C59DC
+          calc_fnc: MIN
+          item:
+            host: Linux
+            key: 'vm.meminfo[FileHugePages]'
+        - sortorder: '7'
+          color: AC8C14
+          calc_fnc: MIN
+          item:
+            host: Linux
+            key: 'vm.meminfo[SecPageTables]'
+        - sortorder: '8'
+          color: 611F27
+          calc_fnc: MIN
+          item:
+            host: Linux
+            key: 'vm.meminfo[VmallocUsed]'
+    - uuid: ee92b24fc44145b582c10d8646dc7947
+      name: uptime
+      graph_items:
+        - color: 1A7C11
+          calc_fnc: ALL
+          item:
+            host: Linux
+            key: system.uptime

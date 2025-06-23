@@ -1,0 +1,69 @@
+zabbix_export:
+  version: '7.2'
+  template_groups:
+    - uuid: 91520a96e3984c5e8dcd63bc45b04d75
+      name: 'pn custom'
+  templates:
+    - uuid: 4c8344d3f70c4d07933a3ca27721cd15
+      template: network
+      name: network
+      groups:
+        - name: 'pn custom'
+      discovery_rules:
+        - uuid: cf4d35c5aae44de4913f24c134d44169
+          name: 'disco: net'
+          key: net.if.discovery
+          delay: 1h
+          filter:
+            evaltype: AND
+            conditions:
+              - macro: '{#IFNAME}'
+                value: '{$NET.INCLUDE}'
+              - macro: '{#IFNAME}'
+                value: '{$NET.EXCLUDE}'
+                operator: NOT_MATCHES_REGEX
+          item_prototypes:
+            - uuid: da47e7397cfd42da8f1ab9c6a9db23d7
+              name: 'net {#IFNAME}: receive rate'
+              key: 'net.if.in[{#IFNAME}]'
+              value_type: FLOAT
+              units: Bps
+              preprocessing:
+                - type: CHANGE_PER_SECOND
+              tags:
+                - tag: cat
+                  value: net
+                - tag: net
+                  value: '{#IFNAME}'
+            - uuid: 8df73a307d3344f9bcca0b6969b3bdde
+              name: 'net {#IFNAME}: transmit rate'
+              key: 'net.if.out[{#IFNAME}]'
+              value_type: FLOAT
+              units: Bps
+              preprocessing:
+                - type: CHANGE_PER_SECOND
+              tags:
+                - tag: cat
+                  value: net
+                - tag: net
+                  value: '{#IFNAME}'
+          graph_prototypes:
+            - uuid: 7aaea95cffe74c239db3e8ede088d766
+              name: 'net {#IFNAME}'
+              graph_items:
+                - color: 1A7C11
+                  calc_fnc: ALL
+                  item:
+                    host: network
+                    key: 'net.if.in[{#IFNAME}]'
+                - sortorder: '1'
+                  color: '274482'
+                  calc_fnc: ALL
+                  item:
+                    host: network
+                    key: 'net.if.out[{#IFNAME}]'
+      macros:
+        - macro: '{$NET.EXCLUDE}'
+          value: lo|(tailscale|wg)\d+
+        - macro: '{$NET.INCLUDE}'
+          value: '(eth|wired)\d+(?!\..*)'

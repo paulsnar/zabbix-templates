@@ -1,0 +1,51 @@
+zabbix_export:
+  version: '7.2'
+  template_groups:
+    - uuid: 91520a96e3984c5e8dcd63bc45b04d75
+      name: 'pn custom'
+  templates:
+    - uuid: a70cbfa34c6c403597033cfdd0fdd805
+      template: generic
+      name: generic
+      groups:
+        - name: 'pn custom'
+      items:
+        - uuid: a90707e8128d40f3b513c183a458a7f1
+          name: 'zbx: ping'
+          key: agent.ping
+          history: 7d
+          trends: '0'
+          tags:
+            - tag: cat
+              value: zbx
+          triggers:
+            - uuid: eee7d8edacfb4aa2ae6089f81f800d84
+              expression: 'nodata(/generic/agent.ping, {$OFFLINE_THRESHOLD}) = 1'
+              name: 'Host is unreachable'
+              priority: HIGH
+        - uuid: 9ad546ece1d84b279d182c5b315e8d91
+          name: 'zbx: agent variant'
+          key: agent.variant
+          history: 7d
+          trends: '0'
+          preprocessing:
+            - type: CHECK_NOT_SUPPORTED
+              parameters:
+                - '-1'
+              error_handler: CUSTOM_VALUE
+              error_handler_params: '1'
+          tags:
+            - tag: cat
+              value: zbx
+        - uuid: 1900f5df94e5472e9302650a6ea363e0
+          name: 'zbx: agent version'
+          key: agent.version
+          history: 7d
+          value_type: CHAR
+          tags:
+            - tag: cat
+              value: zbx
+      macros:
+        - macro: '{$OFFLINE_THRESHOLD}'
+          value: 5m
+          description: 'if host does not respond to pings for this long, an offline problem will be opened'

@@ -1,0 +1,489 @@
+zabbix_export:
+  version: '7.2'
+  template_groups:
+    - uuid: 91520a96e3984c5e8dcd63bc45b04d75
+      name: 'pn custom'
+  templates:
+    - uuid: 6e6c08f94168480ebc4ba81de16f487b
+      template: zfs
+      name: zfs
+      groups:
+        - name: 'pn custom'
+      discovery_rules:
+        - uuid: 4ce492b4aadd46ff881c61f13514ea47
+          name: 'disco: zfs pools'
+          key: 'vfs.dir.get[/proc/spl/kstat/zfs,,,dir]'
+          delay: 1h
+          item_prototypes:
+            - uuid: d1a8af2768c1428aaa8b1e5688ab35fd
+              name: 'zfs {#ZFS.POOL}: pool state'
+              key: 'vfs.file.contents[/proc/spl/kstat/zfs/{#ZFS.POOL}/state]'
+              valuemap:
+                name: 'zfs: pool status'
+              preprocessing:
+                - type: JAVASCRIPT
+                  parameters:
+                    - |
+                      switch (value.toLowerCase()) {
+                      	case 'suspended': return 0;
+                      	case 'unavail': return 1;
+                      	case 'removed': return 2;
+                      	case 'offline': return 3;
+                      	case 'faulted': return 4;
+                      	case 'degraded': return 5;
+                      	case 'online': return 6;
+                      }
+              tags:
+                - tag: cat
+                  value: zfs
+                - tag: zpool
+                  value: '{#ZFS.POOL}'
+              trigger_prototypes:
+                - uuid: f560bd75c81c421083dbc186a44f3c8f
+                  expression: 'last(/zfs/vfs.file.contents[/proc/spl/kstat/zfs/{#ZFS.POOL}/state]) < 6'
+                  name: 'zfs {#ZFS.POOL}: pool state {ITEM.VALUE}'
+                  priority: HIGH
+                  tags:
+                    - tag: cat
+                      value: zfs
+                    - tag: zpool
+                      value: '{#ZFS.POOL}'
+            - uuid: 5282feb6653243fe91c6a4ce64bdd644
+              name: 'zfs {#ZFS.POOL}: read bandwidth'
+              type: DEPENDENT
+              key: 'zfs.pool.bandwidth.read[{#ZFS.POOL}]'
+              units: Bps
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[5]'
+                - type: MATCHES_REGEX
+                  parameters:
+                    - '^[0-9]+$'
+                  error_handler: DISCARD_VALUE
+              master_item:
+                key: 'zfs.pool.iostat[{#ZFS.POOL}]'
+              tags:
+                - tag: cat
+                  value: zfs
+                - tag: zpool
+                  value: '{#ZFS.POOL}'
+            - uuid: cb16db4501ef4cc89f535cc005887ba4
+              name: 'zfs {#ZFS.POOL}: write bandwidth'
+              type: DEPENDENT
+              key: 'zfs.pool.bandwidth.write[{#ZFS.POOL}]'
+              units: Bps
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[6]'
+                - type: MATCHES_REGEX
+                  parameters:
+                    - '^[0-9]+$'
+                  error_handler: DISCARD_VALUE
+              master_item:
+                key: 'zfs.pool.iostat[{#ZFS.POOL}]'
+              tags:
+                - tag: cat
+                  value: zfs
+                - tag: zpool
+                  value: '{#ZFS.POOL}'
+            - uuid: e92738a8e08e46e88716a42f62aca9ef
+              name: 'zfs {#ZFS.POOL}: allocated capacity'
+              type: DEPENDENT
+              key: 'zfs.pool.cap.alloc[{#ZFS.POOL}]'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[1]'
+              master_item:
+                key: 'zfs.pool.iostat[{#ZFS.POOL}]'
+              tags:
+                - tag: cat
+                  value: zfs
+                - tag: zpool
+                  value: '{#ZFS.POOL}'
+            - uuid: bb8eb3fdc91b45e0ad7278106edd9e12
+              name: 'zfs {#ZFS.POOL}: free capacity'
+              type: DEPENDENT
+              key: 'zfs.pool.cap.free[{#ZFS.POOL}]'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[2]'
+              master_item:
+                key: 'zfs.pool.iostat[{#ZFS.POOL}]'
+              tags:
+                - tag: cat
+                  value: zfs
+                - tag: zpool
+                  value: '{#ZFS.POOL}'
+            - uuid: 61f145e8f70d4f78a1632fb7b6a9c9d7
+              name: 'zfs {#ZFS.POOL}: get iostat'
+              key: 'zfs.pool.iostat[{#ZFS.POOL}]'
+              delay: 5m
+              history: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JAVASCRIPT
+                  parameters:
+                    - 'return JSON.stringify(value.trim().split(/[ \t]+/));'
+              tags:
+                - tag: cat
+                  value: zfs
+                - tag: zpool
+                  value: '{#ZFS.POOL}'
+            - uuid: 5dfb4468a90545b486dabfc0291c2662
+              name: 'zfs {#ZFS.POOL}: average async queue read latency'
+              type: DEPENDENT
+              key: 'zfs.pool.latency.asyncq.read[{#ZFS.POOL}]'
+              value_type: FLOAT
+              units: s
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[13]'
+                - type: MATCHES_REGEX
+                  parameters:
+                    - '^[0-9]+$'
+                  error_handler: DISCARD_VALUE
+                - type: MULTIPLIER
+                  parameters:
+                    - '1.0E-9'
+              master_item:
+                key: 'zfs.pool.iostat[{#ZFS.POOL}]'
+              tags:
+                - tag: cat
+                  value: zfs
+                - tag: zpool
+                  value: '{#ZFS.POOL}'
+            - uuid: c2f3321161fe4a28a961b697b4df746e
+              name: 'zfs {#ZFS.POOL}: average async queue write latency'
+              type: DEPENDENT
+              key: 'zfs.pool.latency.asyncq.write[{#ZFS.POOL}]'
+              value_type: FLOAT
+              units: s
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[14]'
+                - type: MATCHES_REGEX
+                  parameters:
+                    - '^[0-9]+$'
+                  error_handler: DISCARD_VALUE
+                - type: MULTIPLIER
+                  parameters:
+                    - '1.0E-9'
+              master_item:
+                key: 'zfs.pool.iostat[{#ZFS.POOL}]'
+              tags:
+                - tag: cat
+                  value: zfs
+                - tag: zpool
+                  value: '{#ZFS.POOL}'
+            - uuid: 9e53c9262d2d48baaa9b94e18331a261
+              name: 'zfs {#ZFS.POOL}: average disk read latency'
+              type: DEPENDENT
+              key: 'zfs.pool.latency.disk.read[{#ZFS.POOL}]'
+              value_type: FLOAT
+              units: s
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[9]'
+                - type: MATCHES_REGEX
+                  parameters:
+                    - '^[0-9]+$'
+                  error_handler: DISCARD_VALUE
+                - type: MULTIPLIER
+                  parameters:
+                    - '1.0E-9'
+              master_item:
+                key: 'zfs.pool.iostat[{#ZFS.POOL}]'
+              tags:
+                - tag: cat
+                  value: zfs
+                - tag: zpool
+                  value: '{#ZFS.POOL}'
+            - uuid: 4772562cbacd408a8ff54f33dbade068
+              name: 'zfs {#ZFS.POOL}: average disk write latency'
+              type: DEPENDENT
+              key: 'zfs.pool.latency.disk.write[{#ZFS.POOL}]'
+              value_type: FLOAT
+              units: s
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[10]'
+                - type: MATCHES_REGEX
+                  parameters:
+                    - '^[0-9]+$'
+                  error_handler: DISCARD_VALUE
+                - type: MULTIPLIER
+                  parameters:
+                    - '1.0E-9'
+              master_item:
+                key: 'zfs.pool.iostat[{#ZFS.POOL}]'
+              tags:
+                - tag: cat
+                  value: zfs
+                - tag: zpool
+                  value: '{#ZFS.POOL}'
+            - uuid: d28ee341c0b8411e941cdc2317373bfc
+              name: 'zfs {#ZFS.POOL}: average scrub latency'
+              type: DEPENDENT
+              key: 'zfs.pool.latency.scrub[{#ZFS.POOL}]'
+              value_type: FLOAT
+              units: s
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[15]'
+                - type: MATCHES_REGEX
+                  parameters:
+                    - '^[0-9]+$'
+                  error_handler: DISCARD_VALUE
+                - type: MULTIPLIER
+                  parameters:
+                    - '1.0E-9'
+              master_item:
+                key: 'zfs.pool.iostat[{#ZFS.POOL}]'
+              tags:
+                - tag: cat
+                  value: zfs
+                - tag: zpool
+                  value: '{#ZFS.POOL}'
+            - uuid: 38645d7a0aec4639a7e7a4b46fc0f747
+              name: 'zfs {#ZFS.POOL}: average sync queue read latency'
+              type: DEPENDENT
+              key: 'zfs.pool.latency.syncq.read[{#ZFS.POOL}]'
+              value_type: FLOAT
+              units: s
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[11]'
+                - type: MATCHES_REGEX
+                  parameters:
+                    - '^[0-9]+$'
+                  error_handler: DISCARD_VALUE
+                - type: MULTIPLIER
+                  parameters:
+                    - '1.0E-9'
+              master_item:
+                key: 'zfs.pool.iostat[{#ZFS.POOL}]'
+              tags:
+                - tag: cat
+                  value: zfs
+                - tag: zpool
+                  value: '{#ZFS.POOL}'
+            - uuid: f29ef7ac6eb347b9bbe553e0e596d83e
+              name: 'zfs {#ZFS.POOL}: average sync queue write latency'
+              type: DEPENDENT
+              key: 'zfs.pool.latency.syncq.write[{#ZFS.POOL}]'
+              value_type: FLOAT
+              units: s
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[12]'
+                - type: MATCHES_REGEX
+                  parameters:
+                    - '^[0-9]+$'
+                  error_handler: DISCARD_VALUE
+                - type: MULTIPLIER
+                  parameters:
+                    - '1.0E-9'
+              master_item:
+                key: 'zfs.pool.iostat[{#ZFS.POOL}]'
+              tags:
+                - tag: cat
+                  value: zfs
+                - tag: zpool
+                  value: '{#ZFS.POOL}'
+            - uuid: 07f613cb19364ac2953c0e26a8584386
+              name: 'zfs {#ZFS.POOL}: average total read latency'
+              type: DEPENDENT
+              key: 'zfs.pool.latency.total.read[{#ZFS.POOL}]'
+              value_type: FLOAT
+              units: s
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[7]'
+                - type: MATCHES_REGEX
+                  parameters:
+                    - '^[0-9]+$'
+                  error_handler: DISCARD_VALUE
+                - type: MULTIPLIER
+                  parameters:
+                    - '1.0E-9'
+              master_item:
+                key: 'zfs.pool.iostat[{#ZFS.POOL}]'
+              tags:
+                - tag: cat
+                  value: zfs
+                - tag: zpool
+                  value: '{#ZFS.POOL}'
+            - uuid: b6e5ee10dc89418ca06bf556804d53d7
+              name: 'zfs {#ZFS.POOL}: average total write latency'
+              type: DEPENDENT
+              key: 'zfs.pool.latency.total.write[{#ZFS.POOL}]'
+              value_type: FLOAT
+              units: s
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[8]'
+                - type: MATCHES_REGEX
+                  parameters:
+                    - '^[0-9]+$'
+                  error_handler: DISCARD_VALUE
+                - type: MULTIPLIER
+                  parameters:
+                    - '1.0E-9'
+              master_item:
+                key: 'zfs.pool.iostat[{#ZFS.POOL}]'
+              tags:
+                - tag: cat
+                  value: zfs
+                - tag: zpool
+                  value: '{#ZFS.POOL}'
+            - uuid: 9be97e9f41db4e7cb9777fcbb405aa76
+              name: 'zfs {#ZFS.POOL}: % allocated'
+              type: CALCULATED
+              key: 'zfs.pool.size.calc[{#ZFS.POOL},pallocated]'
+              value_type: FLOAT
+              units: '%'
+              params: |
+                100 *
+                last(//zfs.pool.cap.alloc[{#ZFS.POOL}]) /
+                last(//zfs.pool.size[{#ZFS.POOL},size])
+              tags:
+                - tag: cat
+                  value: zfs
+                - tag: zpool
+                  value: '{#ZFS.POOL}'
+              trigger_prototypes:
+                - uuid: 5afef9e7c14746e195184ae377003644
+                  expression: 'avg(/zfs/zfs.pool.size.calc[{#ZFS.POOL},pallocated],5m) > 70'
+                  name: 'zfs {#ZFS.POOL}: allocation above 70%'
+                  priority: AVERAGE
+                  dependencies:
+                    - name: 'zfs {#ZFS.POOL}: allocation above 80%'
+                      expression: 'avg(/zfs/zfs.pool.size.calc[{#ZFS.POOL},pallocated],5m) > 80'
+                  tags:
+                    - tag: cat
+                      value: zfs
+                    - tag: zpool
+                      value: '{#ZFS.POOL}'
+                - uuid: ff57907cb4f54ba5b1f82b5f03928f66
+                  expression: 'avg(/zfs/zfs.pool.size.calc[{#ZFS.POOL},pallocated],5m) > 80'
+                  name: 'zfs {#ZFS.POOL}: allocation above 80%'
+                  priority: HIGH
+                  dependencies:
+                    - name: 'zfs {#ZFS.POOL}: allocation above 90%'
+                      expression: 'avg(/zfs/zfs.pool.size.calc[{#ZFS.POOL},pallocated],5m) > 90'
+                  tags:
+                    - tag: cat
+                      value: zfs
+                    - tag: zpool
+                      value: '{#ZFS.POOL}'
+                - uuid: 7ab330fc7b674032bcc8fa742e5c279e
+                  expression: 'avg(/zfs/zfs.pool.size.calc[{#ZFS.POOL},pallocated],5m) > 90'
+                  name: 'zfs {#ZFS.POOL}: allocation above 90%'
+                  priority: DISASTER
+                  tags:
+                    - tag: cat
+                      value: zfs
+                    - tag: zpool
+                      value: '{#ZFS.POOL}'
+            - uuid: e22180fa964e41759546188f87fdb2fd
+              name: 'zfs {#ZFS.POOL}: total size'
+              key: 'zfs.pool.size[{#ZFS.POOL},size]'
+              units: B
+              tags:
+                - tag: cat
+                  value: zfs
+                - tag: zpool
+                  value: '{#ZFS.POOL}'
+          graph_prototypes:
+            - uuid: 87e1554f5ff943aca5deae460e7938fe
+              name: 'zfs: {#ZFS.POOL} average latencies'
+              graph_items:
+                - color: 1A7C11
+                  calc_fnc: ALL
+                  item:
+                    host: zfs
+                    key: 'zfs.pool.latency.asyncq.read[{#ZFS.POOL}]'
+                - sortorder: '1'
+                  color: '274482'
+                  calc_fnc: ALL
+                  item:
+                    host: zfs
+                    key: 'zfs.pool.latency.asyncq.write[{#ZFS.POOL}]'
+                - sortorder: '2'
+                  color: F63100
+                  calc_fnc: ALL
+                  item:
+                    host: zfs
+                    key: 'zfs.pool.latency.disk.read[{#ZFS.POOL}]'
+                - sortorder: '3'
+                  color: 2774A4
+                  calc_fnc: ALL
+                  item:
+                    host: zfs
+                    key: 'zfs.pool.latency.disk.write[{#ZFS.POOL}]'
+                - sortorder: '4'
+                  color: A54F10
+                  calc_fnc: ALL
+                  item:
+                    host: zfs
+                    key: 'zfs.pool.latency.scrub[{#ZFS.POOL}]'
+                - sortorder: '5'
+                  color: FC6EA3
+                  calc_fnc: ALL
+                  item:
+                    host: zfs
+                    key: 'zfs.pool.latency.syncq.read[{#ZFS.POOL}]'
+                - sortorder: '6'
+                  color: 6C59DC
+                  calc_fnc: ALL
+                  item:
+                    host: zfs
+                    key: 'zfs.pool.latency.syncq.write[{#ZFS.POOL}]'
+                - sortorder: '7'
+                  color: AC8C14
+                  calc_fnc: ALL
+                  item:
+                    host: zfs
+                    key: 'zfs.pool.latency.total.read[{#ZFS.POOL}]'
+                - sortorder: '8'
+                  color: 611F27
+                  calc_fnc: ALL
+                  item:
+                    host: zfs
+                    key: 'zfs.pool.latency.total.write[{#ZFS.POOL}]'
+          lld_macro_paths:
+            - lld_macro: '{#ZFS.POOL}'
+              path: $.basename
+      valuemaps:
+        - uuid: 8434fecc3a264f3697e5b58dd219e631
+          name: 'zfs: pool status'
+          mappings:
+            - value: '0'
+              newvalue: suspended
+            - value: '1'
+              newvalue: unavail
+            - value: '2'
+              newvalue: removed
+            - value: '3'
+              newvalue: offline
+            - value: '4'
+              newvalue: faulted
+            - value: '5'
+              newvalue: degraded
+            - value: '6'
+              newvalue: online

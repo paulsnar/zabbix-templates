@@ -1,0 +1,69 @@
+zabbix_export:
+  version: '7.2'
+  template_groups:
+    - uuid: 91520a96e3984c5e8dcd63bc45b04d75
+      name: 'pn custom'
+  templates:
+    - uuid: 422e3f6c9e7843408da4fea8571b8b70
+      template: systemd
+      name: systemd
+      groups:
+        - name: 'pn custom'
+      discovery_rules:
+        - uuid: 19294f6c95de4cb99e92a1f3f7d7fe25
+          name: 'disco: systemd units'
+          key: 'systemd.unit.discovery[all]'
+          delay: 1h
+          filter:
+            conditions:
+              - macro: '{#UNIT.NAME}'
+                value: '{$SYSTEMD.UNITS}'
+          item_prototypes:
+            - uuid: 50dc7cd7e60142d497643265f6c5e887
+              name: 'systemd: {#UNIT.NAME} active state'
+              key: 'systemd.unit.info[{#UNIT.NAME},ActiveState]'
+              valuemap:
+                name: 'systemd: active state'
+              preprocessing:
+                - type: JAVASCRIPT
+                  parameters:
+                    - |
+                      switch (value) {
+                      	case 'inactive': return 0;
+                      	case 'activating': return 1;
+                      	case 'failed': return 2;
+                      	case 'deactivating': return 3;
+                      	case 'active': return 4;
+                      	case 'reloading': return 5;
+                      }
+              tags:
+                - tag: cat
+                  value: systemd
+              trigger_prototypes:
+                - uuid: edeaa7d5a0344bb08e561b26e1bd65b2
+                  expression: 'last(/systemd/systemd.unit.info[{#UNIT.NAME},ActiveState]) = 2'
+                  name: 'systemd: unit {#UNIT.NAME} failed'
+                  priority: HIGH
+                  tags:
+                    - tag: cat
+                      value: systemd
+      macros:
+        - macro: '{$SYSTEMD.UNITS}'
+          value: (tailscaled|cronie).service
+          description: 'regex of unit names to match'
+      valuemaps:
+        - uuid: e171b50cc73c4ac9b990700ed4f22e31
+          name: 'systemd: active state'
+          mappings:
+            - value: '0'
+              newvalue: inactive
+            - value: '1'
+              newvalue: activating
+            - value: '2'
+              newvalue: failed
+            - value: '3'
+              newvalue: deactivating
+            - value: '4'
+              newvalue: active
+            - value: '5'
+              newvalue: reloading

@@ -1,0 +1,148 @@
+zabbix_export:
+  version: '7.2'
+  template_groups:
+    - uuid: 91520a96e3984c5e8dcd63bc45b04d75
+      name: 'pn custom'
+  templates:
+    - uuid: 47ff430081434ccfb95c8760ad6170d9
+      template: fs
+      name: fs
+      groups:
+        - name: 'pn custom'
+      discovery_rules:
+        - uuid: 2f66688f85434afc9a536d679771a955
+          name: 'disco: fs'
+          key: vfs.fs.discovery
+          delay: 1h
+          filter:
+            conditions:
+              - macro: '{#FSNAME}'
+                value: '^({$VFS.MATCH})$'
+          item_prototypes:
+            - uuid: 7b96bf08f5f14f05a0d5d44c7891e87c
+              name: 'fs {#FSNAME}: free space'
+              key: 'vfs.fs.size[{#FSNAME},free]'
+              units: B
+              tags:
+                - tag: cat
+                  value: fs
+                - tag: fs
+                  value: '{#FSNAME}'
+            - uuid: 50cf562d4630497e99cc80ea51ab1aac
+              name: 'fs {#FSNAME}: % free space'
+              key: 'vfs.fs.size[{#FSNAME},pfree]'
+              value_type: FLOAT
+              units: '%'
+              tags:
+                - tag: cat
+                  value: fs
+                - tag: fs
+                  value: '{#FSNAME}'
+              trigger_prototypes:
+                - uuid: 78edb912ab4442269e4b6ceef38bf0b1
+                  expression: 'avg(/fs/vfs.fs.size[{#FSNAME},pfree],5m) < {$VFS.PCTCRIT}'
+                  name: 'fs: Free space on {#FSNAME} below {$VFS.PCTCRIT}%'
+                  priority: HIGH
+                  tags:
+                    - tag: cat
+                      value: fs
+                    - tag: fs
+                      value: '{#FSNAME}'
+                - uuid: 7dbc9c5da9144a0c94b693f8a4de83e3
+                  expression: 'avg(/fs/vfs.fs.size[{#FSNAME},pfree],5m) < {$VFS.PCTWARN}'
+                  name: 'fs: Free space on {#FSNAME} below {$VFS.PCTWARN}%'
+                  priority: AVERAGE
+                  dependencies:
+                    - name: 'fs: Free space on {#FSNAME} below {$VFS.PCTCRIT}%'
+                      expression: 'avg(/fs/vfs.fs.size[{#FSNAME},pfree],5m) < {$VFS.PCTCRIT}'
+                  tags:
+                    - tag: cat
+                      value: fs
+                    - tag: fs
+                      value: '{#FSNAME}'
+            - uuid: a4d9e43b46824a1881393887c9cb022c
+              name: 'fs {#FSNAME}: total space'
+              key: 'vfs.fs.size[{#FSNAME},total]'
+              units: B
+              tags:
+                - tag: cat
+                  value: fs
+                - tag: fs
+                  value: '{#FSNAME}'
+      macros:
+        - macro: '{$VFS.MATCH}'
+          value: /
+          description: 'Regex matching filesystems to include'
+        - macro: '{$VFS.PCTCRIT}'
+          value: '15'
+          description: 'Threshold of free space at which to raise a High problem'
+        - macro: '{$VFS.PCTWARN}'
+          value: '30'
+          description: 'Threshold of free space at which to raise an Average problem'
+      dashboards:
+        - uuid: db0521d5626e4db8bd0ecbe713b1bc82
+          name: Filesystems
+          pages:
+            - widgets:
+                - type: svggraph
+                  name: Filesystems
+                  width: '72'
+                  height: '6'
+                  fields:
+                    - type: STRING
+                      name: ds.0.color
+                      value: '000000'
+                    - type: INTEGER
+                      name: ds.0.fill
+                      value: '0'
+                    - type: STRING
+                      name: ds.0.items.0
+                      value: '*fs*% free space'
+                    - type: INTEGER
+                      name: ds.0.transparency
+                      value: '0'
+                    - type: STRING
+                      name: ds.1.color
+                      value: FFBF00
+                    - type: STRING
+                      name: ds.1.items.0
+                      value: '{$VFS.PCTWARN}'
+                    - type: INTEGER
+                      name: ds.1.pointsize
+                      value: '1'
+                    - type: INTEGER
+                      name: ds.1.transparency
+                      value: '0'
+                    - type: INTEGER
+                      name: ds.1.type
+                      value: '1'
+                    - type: STRING
+                      name: ds.2.color
+                      value: FF465C
+                    - type: STRING
+                      name: ds.2.items.0
+                      value: '{$VFS.PCTCRIT}'
+                    - type: INTEGER
+                      name: ds.2.pointsize
+                      value: '1'
+                    - type: INTEGER
+                      name: ds.2.transparency
+                      value: '0'
+                    - type: INTEGER
+                      name: ds.2.type
+                      value: '1'
+                    - type: STRING
+                      name: lefty_max
+                      value: '100'
+                    - type: STRING
+                      name: lefty_min
+                      value: '0'
+                    - type: STRING
+                      name: reference
+                      value: RZNTK
+                    - type: INTEGER
+                      name: righty
+                      value: '0'
+                    - type: INTEGER
+                      name: simple_triggers
+                      value: '1'
