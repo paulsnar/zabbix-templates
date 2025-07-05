@@ -60,6 +60,37 @@ zabbix_export:
                   value: lvm
                 - tag: lv
                   value: '{#LV_ID}'
+              trigger_prototypes:
+                - uuid: 7420d183e516474c852cc4cf896a670c
+                  expression: |
+                    nodata(/LVM/lvm.lv.data_pct[{#LV_ID}],1) = 0
+                    and
+                    last(/LVM/lvm.lv.data_pct[{#LV_ID}]) > 80
+                  name: 'lvm lv {#LV_ID}: data allocation above 80%'
+                  priority: WARNING
+                  dependencies:
+                    - name: 'lvm lv {#LV_ID}: data allocation above 90%'
+                      expression: |
+                        nodata(/LVM/lvm.lv.data_pct[{#LV_ID}], 1) = 0
+                        and
+                        last(/LVM/lvm.lv.data_pct[{#LV_ID}]) > 90
+                  tags:
+                    - tag: cat
+                      value: lvm
+                    - tag: lv
+                      value: '{#LV_ID}'
+                - uuid: e035b4c8919041a08ee0d1d358964f8b
+                  expression: |
+                    nodata(/LVM/lvm.lv.data_pct[{#LV_ID}], 1) = 0
+                    and
+                    last(/LVM/lvm.lv.data_pct[{#LV_ID}]) > 90
+                  name: 'lvm lv {#LV_ID}: data allocation above 90%'
+                  priority: HIGH
+                  tags:
+                    - tag: cat
+                      value: lvm
+                    - tag: lv
+                      value: '{#LV_ID}'
             - uuid: c7941225b05a48448b7d800c86e0d423
               name: 'lvm lv {#LV_ID}: metadata percent'
               type: DEPENDENT
@@ -81,6 +112,37 @@ zabbix_export:
                   value: lvm
                 - tag: lv
                   value: '{#LV_ID}'
+              trigger_prototypes:
+                - uuid: a82b00bb96f8482d8d1c99585fe04d41
+                  expression: |
+                    nodata(/LVM/lvm.lv.metadata_pct[{#LV_ID}], 1) = 0
+                    and
+                    last(/LVM/lvm.lv.metadata_pct[{#LV_ID}]) > 80
+                  name: 'lvm lv {#LV_ID}: metadata allocation above 80%'
+                  priority: WARNING
+                  dependencies:
+                    - name: 'lvm lv {#LV_ID}: metadata allocation above 90%'
+                      expression: |
+                        nodata(/LVM/lvm.lv.metadata_pct[{#LV_ID}], 1) = 0
+                        and
+                        last(/LVM/lvm.lv.metadata_pct[{#LV_ID}]) > 90
+                  tags:
+                    - tag: cat
+                      value: lvm
+                    - tag: lv
+                      value: '{#LV_ID}'
+                - uuid: 86bb5ba293fe42ccb1f604629c0262c2
+                  expression: |
+                    nodata(/LVM/lvm.lv.metadata_pct[{#LV_ID}], 1) = 0
+                    and
+                    last(/LVM/lvm.lv.metadata_pct[{#LV_ID}]) > 90
+                  name: 'lvm lv {#LV_ID}: metadata allocation above 90%'
+                  priority: HIGH
+                  tags:
+                    - tag: cat
+                      value: lvm
+                    - tag: lv
+                      value: '{#LV_ID}'
             - uuid: b7cb9d17f02a466a8672fd0450147c4e
               name: 'lvm lv {#LV_ID}: total size'
               type: DEPENDENT
