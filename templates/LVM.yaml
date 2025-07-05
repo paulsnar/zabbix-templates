@@ -1,0 +1,250 @@
+zabbix_export:
+  version: '7.2'
+  template_groups:
+    - uuid: 91520a96e3984c5e8dcd63bc45b04d75
+      name: 'pn custom'
+  templates:
+    - uuid: 99c794834cf14194874f345130dd149d
+      template: LVM
+      name: LVM
+      groups:
+        - name: 'pn custom'
+      discovery_rules:
+        - uuid: ca1545d545f14d9e9f2e93d6a9e12825
+          name: 'disco: lvm lvs'
+          key: lvm.lv.discovery
+          delay: 1h
+          item_prototypes:
+            - uuid: 10ef264bdd554173b6e606d2f4208c90
+              name: 'lvm lv {#LV_ID}: get data'
+              key: 'lvm.lv.data[{#LV_ID}]'
+              history: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JAVASCRIPT
+                  parameters:
+                    - |
+                      // g0:thin:twi---tz--:419547840512:0.00:10.64:
+                      // g0:thintest:Vwi-a-tz--:536870912000:0.00::thin
+                      var parts = value.trim().split(":");
+                      return JSON.stringify({
+                      	attr: parts[2],
+                      	size: parts[3],
+                      	data_pct: parts[4],
+                      	metadata_pct: parts[5],
+                      	thin_pool: parts[6],
+                      });
+              tags:
+                - tag: cat
+                  value: lvm
+                - tag: lv
+                  value: '{#LV_ID}'
+            - uuid: 74f6efe082054602ae82771012c39f7b
+              name: 'lvm lv {#LV_ID}: data percent'
+              type: DEPENDENT
+              key: 'lvm.lv.data_pct[{#LV_ID}]'
+              value_type: FLOAT
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - $.data_pct
+                - type: MATCHES_REGEX
+                  parameters:
+                    - '[0-9.]+'
+                  error_handler: DISCARD_VALUE
+              master_item:
+                key: 'lvm.lv.data[{#LV_ID}]'
+              tags:
+                - tag: cat
+                  value: lvm
+                - tag: lv
+                  value: '{#LV_ID}'
+            - uuid: c7941225b05a48448b7d800c86e0d423
+              name: 'lvm lv {#LV_ID}: metadata percent'
+              type: DEPENDENT
+              key: 'lvm.lv.metadata_pct[{#LV_ID}]'
+              value_type: FLOAT
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - $.metadata_pct
+                - type: MATCHES_REGEX
+                  parameters:
+                    - '[0-9.]+'
+                  error_handler: DISCARD_VALUE
+              master_item:
+                key: 'lvm.lv.data[{#LV_ID}]'
+              tags:
+                - tag: cat
+                  value: lvm
+                - tag: lv
+                  value: '{#LV_ID}'
+            - uuid: b7cb9d17f02a466a8672fd0450147c4e
+              name: 'lvm lv {#LV_ID}: total size'
+              type: DEPENDENT
+              key: 'lvm.lv.total_size[{#LV_ID}]'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - $.size
+              master_item:
+                key: 'lvm.lv.data[{#LV_ID}]'
+              tags:
+                - tag: cat
+                  value: lvm
+                - tag: lv
+                  value: '{#LV_ID}'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  return JSON.stringify(value.split("\n").map(function(line) {
+                  	var parts = line.trim().split(":");
+                  	if (parts.length !== 2) return undefined;
+                  	return {"{#LV_ID}": parts[0] + ":" + parts[1], "{#LV_NAME}": parts[1], "{#VG_NAME}": parts[0]};
+                  }).filter(function(item) {
+                  	return item !== undefined;
+                  }));
+        - uuid: abf087e871904d8781b340eed91cb1af
+          name: 'disco: lvm pvs'
+          key: lvm.pv.discovery
+          delay: 1h
+          item_prototypes:
+            - uuid: f882701553b042da8485f40a89eecab1
+              name: 'lvm pv {#PV_NAME}: get data'
+              key: 'lvm.pv.data[{#PV_NAME}]'
+              history: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JAVASCRIPT
+                  parameters:
+                    - |
+                      // /dev/sde:g0:a--:8001561821184:0
+                      var parts = value.trim().split(":");
+                      return JSON.stringify({
+                      	vg: parts[1],
+                      	attrs: parts[2],
+                      	size: parts[3],
+                      	free: parts[4],
+                      });
+              tags:
+                - tag: cat
+                  value: lvm
+                - tag: pv
+                  value: '{#PV_NAME}'
+            - uuid: f7c659b520564184bf1d50655eda579b
+              name: 'lvm pv {#PV_NAME}: free size'
+              type: DEPENDENT
+              key: 'lvm.pv.free_size[{#PV_NAME}]'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - $.free
+              master_item:
+                key: 'lvm.pv.data[{#PV_NAME}]'
+              tags:
+                - tag: cat
+                  value: lvm
+                - tag: pv
+                  value: '{#PV_NAME}'
+            - uuid: 1ef3543f7c5c4f98ab25b291b856dce8
+              name: 'lvm pv {#PV_NAME}: total size'
+              type: DEPENDENT
+              key: 'lvm.pv.total_size[{#PV_NAME}]'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - $.size
+              master_item:
+                key: 'lvm.pv.data[{#PV_NAME}]'
+              tags:
+                - tag: cat
+                  value: lvm
+                - tag: pv
+                  value: '{#PV_NAME}'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  var re = value.split("\n").map(function(line) {
+                  	var parts = line.trim().split(":");
+                  	if (parts.length !== 2) return undefined;
+                  	return {"{#PV_NAME}": parts[0], "{#VG_NAME}": parts[1]};
+                  }).filter(function(x) {
+                  	return x !== undefined;
+                  });
+                  return JSON.stringify(re);
+        - uuid: 2ed396d442fd41ac99737e1fe46bcbd4
+          name: 'disco: lvm vgs'
+          key: lvm.vg.discovery
+          delay: 1h
+          item_prototypes:
+            - uuid: 456d66683e55439e96013aead910daf3
+              name: 'lvm vg {#VG_NAME}: get data'
+              key: 'lvm.vg.data[{#VG_NAME}]'
+              history: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JAVASCRIPT
+                  parameters:
+                    - |
+                      // g0:wz--n-:419816275968:0
+                      var parts = value.trim().split(":");
+                      return JSON.stringify({
+                      	attr: parts[1],
+                      	size: parts[2],
+                      	free: parts[3],
+                      });
+              tags:
+                - tag: cat
+                  value: lvm
+                - tag: vg
+                  value: '{#VG_NAME}'
+            - uuid: 7fdbf4d8e591490480adf29600702a8c
+              name: 'lvm vg {#VG_NAME}: free size'
+              type: DEPENDENT
+              key: 'lvm.vg.free_size[{#VG_NAME}]'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - $.free
+              master_item:
+                key: 'lvm.vg.data[{#VG_NAME}]'
+              tags:
+                - tag: cat
+                  value: lvm
+                - tag: vg
+                  value: '{#VG_NAME}'
+            - uuid: 706bfed5ba814a55a8d605eaf7031c1e
+              name: 'lvm vg {#VG_NAME}: total size'
+              type: DEPENDENT
+              key: 'lvm.vg.total_size[{#VG_NAME}]'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - $.size
+              master_item:
+                key: 'lvm.vg.data[{#VG_NAME}]'
+              tags:
+                - tag: cat
+                  value: lvm
+                - tag: vg
+                  value: '{#VG_NAME}'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  return JSON.stringify(value.split("\n").map(function(line) {
+                  	line = line.trim();
+                  	if (line === "") return undefined;
+                  	return {"{#VG_NAME}": line};
+                  }).filter(function(item) {
+                  	return item !== undefined;
+                  }));
